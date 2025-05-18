@@ -3,6 +3,8 @@ import jwt from "jsonwebtoken";
 import { UserModel } from "./db";
 const jwtSecret = process.env.JWT_SECRET as string;
 import cors from "cors";
+import { z } from "zod";
+import bcrypt from "bcrypt"
 
 const app = express();
 app.use(express.json());
@@ -10,49 +12,56 @@ app.use(cors());
 
 app.post("/api/signup", async (req, res) => {
 
-    const username = req.body.username;
-    const password = req.body.password;
+    const requiredBody = z.object({
+        email: z.string().min(3).max(50),
+        username: z.string().min(3).max(20),
+        password: z.string().min(3).max(20),
+    })
+
+    const parsedData = requiredBody.safeParse(req.body);
+    if (!parsedData.success) {
+        return res.json({
+            message: "Incorrect Format",
+            error: parsedData.error
+        })
+    }
+
+    const { email, password, username } = req.body
+    const findUser = await UserModel.findOne({ email });
+    if (findUser) {
+        return res.json({message: "User already exists."})
+    }
 
     try {
-        await UserModel.create({
-            username: username,
-            password: password
-        })
+        const hashedPassword = await bcrypt.hash(password, 3)
 
-        res.json({
-            message: "User signed up"
+        await UserModel.create({
+            email, password: hashedPassword, username
         })
-    } catch (e) {
-        res.status(411).json({
-            message: "User already exists"
-        })
+        res.json({ messsage: "You are signed up" })
+    }
+    catch (e) {
+        res.json({ message: "Internal Server Error" })
     }
 })
 
-app.post("/api/signin", async (req, res) => {
-    
-    const username = req.body.username;
-    const password = req.body.password;
-    // console.log(username)
-    // console.log(password)
 
-    const existingUser = await UserModel.findOne ({
-        username
+app.post("/api/signin", async (req, res) => {
+    const { email, password } = req.body;
+    const admin = await UserModel.findOne({
+        email: email
     })
-    if (existingUser) {
-        const token = jwt.sign ({
-            id: existingUser._id
-        }, jwtSecret)
-        
-        res.json({
-            token
-        })
-    } else {
-        res.status(403).json ({
-            message: "Incorrect Credentials "
-        })
+    if (!admin) {
+        return res.json({message:"User Email Incorrect"})
     }
-        
+    //@ts-ignore
+    const isMatch = await bcrypt.compare(password, admin.password)
+    if (!isMatch) {
+        return res.json("Incorrect Password")
+    }
+
+    const token = jwt.sign({ id: admin._id }, jwtSecret)
+    res.json({ token })
 })
 
 app.listen(3000, () => {

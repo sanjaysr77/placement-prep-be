@@ -22,9 +22,9 @@ async function main () {
 main();
 
 const UserSchema = new Schema ({
-    username: {type: String, unique: true},
+    username: String,
     password: String,
-    name: String
+    email: {type: String, unique: true}
 })
 
 export const UserModel = model("User", UserSchema);
