@@ -5,6 +5,7 @@ const jwtSecret = process.env.JWT_SECRET as string;
 import cors from "cors";
 import { z } from "zod";
 import bcrypt from "bcrypt"
+import { userMiddleware } from "./middleware/userMiddleware";
 
 const app = express();
 app.use(express.json());
@@ -29,7 +30,7 @@ app.post("/api/signup", async (req, res) => {
     const { email, password, username } = req.body
     const findUser = await UserModel.findOne({ email });
     if (findUser) {
-        return res.json({message: "User already exists."})
+        return res.json({ message: "User already exists." })
     }
 
     try {
@@ -52,7 +53,7 @@ app.post("/api/signin", async (req, res) => {
         email: email
     })
     if (!admin) {
-        return res.json({message:"User Email Incorrect"})
+        return res.json({ message: "User Email Incorrect" })
     }
     //@ts-ignore
     const isMatch = await bcrypt.compare(password, admin.password)
@@ -64,7 +65,7 @@ app.post("/api/signin", async (req, res) => {
     res.json({ token })
 })
 
-app.listen(3000, () => {
+app.listen(3002, () => {
     console.log("Running on Port 3000")
 })
 
