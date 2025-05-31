@@ -5,7 +5,7 @@ const jwtSecret = process.env.JWT_SECRET as string;
 export function userMiddleware (req: Request, res: Response, next: NextFunction) {
     const header = req.headers.token;
     const decoded = jwt.verify(header as string, jwtSecret)
-    console.log (decoded);
+   // console.log (decoded);
     if (decoded){
         if (typeof decoded === "string") {
             res.status(403).json({

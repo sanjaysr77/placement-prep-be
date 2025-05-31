@@ -6,12 +6,13 @@ import cors from "cors";
 import { z } from "zod";
 import bcrypt from "bcrypt"
 import { userMiddleware } from "./middleware/userMiddleware";
+import questionRoutes from "./routes/questionRoutes";
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-app.post("/api/signup", async (req, res) => {
+app.post("/signup", async (req, res) => {
 
     const requiredBody = z.object({
         email: z.string().min(3).max(50),
@@ -47,7 +48,7 @@ app.post("/api/signup", async (req, res) => {
 })
 
 
-app.post("/api/signin", async (req, res) => {
+app.post("/signin", async (req, res) => {
     const { email, password } = req.body;
     const admin = await UserModel.findOne({
         email: email
@@ -65,7 +66,9 @@ app.post("/api/signin", async (req, res) => {
     res.json({ token })
 })
 
-app.listen(3002, () => {
+app.use("/v1/topicwise", questionRoutes);
+
+app.listen(3000, () => {
     console.log("Running on Port 3000")
 })
 
