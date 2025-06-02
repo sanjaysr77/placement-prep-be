@@ -1,9 +1,9 @@
 import express from "express";
-import { dbmsQuestions } from "../controllers/questionController";
+import { questionController } from "../controllers/questionController";
 import { userMiddleware } from "../middleware/userMiddleware"; // your auth middleware
 
 const router = express.Router();
 
-router.get("/dbms", userMiddleware, dbmsQuestions);
+router.get("/:subject", userMiddleware, questionController);
 
 export default router;

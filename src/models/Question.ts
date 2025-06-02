@@ -1,4 +1,5 @@
-import { Schema, model } from "mongoose";
+// models/Question.ts
+import { Schema, model, models } from "mongoose";
 
 const QuestionSchema = new Schema({
   question: { type: String, required: true },
@@ -6,5 +7,8 @@ const QuestionSchema = new Schema({
   correctAnswer: { type: String, required: true },
 });
 
-export const QuestionModel = model("Question", QuestionSchema, "dbms"); 
-// "dbms" is the MongoDB collection name
+// Function to dynamically return model for any subject/collection
+export function getQuestionModel(subject: string) {
+  const collectionName = subject.toLowerCase(); // e.g., "dbms", "os"
+  return models[collectionName] || model("Question", QuestionSchema, collectionName);
+}
