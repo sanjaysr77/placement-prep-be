@@ -17,8 +17,8 @@ export async function questionController(req: Request, res: Response) {
     if (!question) {
       return res.status(404).json({ message: "Question not found" });
     }
-
-    res.json({ question });
+    const {correctAnswer, ...rest} = question.toObject();
+    res.json({ question: rest });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
   }
