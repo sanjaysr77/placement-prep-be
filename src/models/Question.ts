@@ -9,6 +9,6 @@ const QuestionSchema = new Schema({
 
 // Function to dynamically return model for any subject/collection
 export function getQuestionModel(subject: string) {
-  const collectionName = subject.toLowerCase(); // e.g., "dbms", "os"
+  const collectionName = subject.toLowerCase(); 
   return models[collectionName] || model("Question", QuestionSchema, collectionName);
 }
