@@ -27,4 +27,11 @@ const UserSchema = new Schema ({
     email: {type: String, unique: true}
 })
 
+const AttemptSchema = new Schema({
+  userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+  questionId: { type: Schema.Types.ObjectId, required: true },
+  attemptedAt: { type: Date, default: Date.now },
+});
+
 export const UserModel = model("User", UserSchema);
+export const AttemptModel = model("attempted", AttemptSchema);
