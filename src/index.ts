@@ -68,7 +68,7 @@ app.post("/signin", async (req, res) => {
 
 app.use("/v1/topicwise", questionRoutes);
 
-app.listen(3000, () => {
+app.listen(3000,() => {
     console.log("Running on Port 3000")
 })
 

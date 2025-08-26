@@ -5,7 +5,8 @@ import { attemptController } from "../controllers/attemptController";
 
 const router = express.Router();
 
-router.get("/:subject", userMiddleware, questionController);
+// Public for quiz start (no auth during development)
+router.get("/:subject", questionController);
 router.post("/", userMiddleware, attemptController);
 
 export default router;
