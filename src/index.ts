@@ -47,7 +47,6 @@ app.post("/signup", async (req, res) => {
     }
 })
 
-
 app.post("/signin", async (req, res) => {
     const { email, password } = req.body;
     const admin = await UserModel.findOne({
