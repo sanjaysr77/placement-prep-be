@@ -1,8 +1,10 @@
-// models/Question.ts
+
 import { Schema, model, models } from "mongoose";
 
 const QuestionSchema = new Schema({
   question: { type: String, required: true },
+  difficulty: { type: String, enum: ["easy", "medium", "hard"], required: true },
+  topic: {type: String, required: true},
   options: [{ type: String, required: true }],
   correctAnswer: { type: String, required: true },
 });
