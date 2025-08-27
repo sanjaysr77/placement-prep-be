@@ -47,7 +47,7 @@ export async function questionController(req: Request, res: Response) {
       },
       { $unwind: "$questions" },
       { $replaceRoot: { newRoot: "$questions" } },
-      { $sample: { size: 10 } } // Shuffle final result
+      { $sample: { size: 10 } } 
     ]);
 
     if (!results || results.length === 0) {
