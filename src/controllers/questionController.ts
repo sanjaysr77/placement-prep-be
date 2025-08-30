@@ -55,7 +55,7 @@ export async function questionController(req: Request, res: Response) {
     }
 
     const sanitized = results.map((q) => {
-      const { correctAnswer, __v, topic, ...rest } = q;
+      const { correctAnswer, __v, topic, difficulty, ...rest } = q;
       return rest;
     });
 
