@@ -58,14 +58,14 @@ app.post("/signin", async (req, res) => {
     //@ts-ignore
     const isMatch = await bcrypt.compare(password, admin.password)
     if (!isMatch) {
-        return res.json("Incorrect Password")
+        return res.json({ message: "Incorrect Password" })
     }
 
     const token = jwt.sign({ id: admin._id }, jwtSecret)
     res.json({ token })
 })
 
-app.use("/v1/topicwise", questionRoutes);
+app.use("/v1/quiz", questionRoutes);
 
 app.listen(3000,() => {
     console.log("Running on Port 3000")
