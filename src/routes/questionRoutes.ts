@@ -6,6 +6,6 @@ import { attemptController } from "../controllers/attemptController";
 const router = express.Router();
 
 router.get("/:subject", userMiddleware, questionController);
-router.post("/", userMiddleware, attemptController);
+router.post("/attempt", userMiddleware, attemptController);
 
 export default router;

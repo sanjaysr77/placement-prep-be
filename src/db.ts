@@ -1,14 +1,14 @@
 import dotenv from "dotenv";
 dotenv.config()
 
-import mongoose, {model, Schema} from "mongoose";
+import mongoose, { model, Schema } from "mongoose";
 const ObjectId = mongoose.Types.ObjectId;
 
-async function main () {
+async function main() {
     try {
         const MONGO_URL = process.env.MONGO_URL;
-        if(!MONGO_URL) {
-            throw new Error ("Mongo URL is missing from .env")
+        if (!MONGO_URL) {
+            throw new Error("Mongo URL is missing from .env")
         }
         await mongoose.connect(MONGO_URL)
         console.log("MongoDB is connected Successfully!")
@@ -21,17 +21,18 @@ async function main () {
 
 main();
 
-const UserSchema = new Schema ({
+const UserSchema = new Schema({
     username: String,
     password: String,
-    email: {type: String, unique: true}
+    email: { type: String, unique: true }
 })
 
 const AttemptSchema = new Schema({
-  userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
-  questionId: { type: Schema.Types.ObjectId, required: true },
-  attemptedAt: { type: Date, default: Date.now },
-});
+    userId: { type: Schema.Types.ObjectId, required: true, ref: "User" },
+    questionId: { type: Schema.Types.ObjectId, required: true, ref: "Question" },
+    selectedOption: { type: String, required: true },
+    correct: { type: Boolean, required: true },
+}, { timestamps: true });
 
 export const UserModel = model("User", UserSchema);
-export const AttemptModel = model("attempted", AttemptSchema);
+export const AttemptModel = model("Attempt", AttemptSchema);

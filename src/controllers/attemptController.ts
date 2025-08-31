@@ -1,34 +1,35 @@
 import { Request, Response } from "express";
-import { AttemptModel, UserModel } from "../db";
+import { getQuestionModel } from "../models/Question";
+import { AttemptModel } from "../db";
 
-export async function attemptController(req: Request, res: Response ) {
-    try {
-        //@ts-ignore
-        const userId = req.userId;
-        const questionId = req.body.questionId;
+export async function attemptController(req: Request, res: Response) {
+  try {
+    const { questionId, selectedOption, subject } = req.body;
+    // @ts-ignore
+    const userId = req.userId;
 
-        if (!questionId) {
-            return res.status(400).json({ message: "Question Id is required" })
-        }
-        const user = UserModel.findById(userId);
-        if (!user) {
-            res.status(404).json({ message: "User not found" })
-        }
-
-        const alreadyAttempted = await AttemptModel.findOne({ userId, questionId });
-        if (alreadyAttempted) {
-            return res.status(409).json({ message: "Question already attempted" });
-        }
-
-        await AttemptModel.create({
-            userId: userId,
-            questionId: questionId
-        });
-
-        res.status(200).json({ message: "Attempt recorded succesfully" })
+    if (!questionId || !selectedOption || !subject) {
+      return res.status(400).json({ message: "questionId, selectedOption, subject required" });
     }
-    catch (error) {
-        res.status(400).json({ message: "Server Error", error });
-    }
+
+    const QuestionModel = getQuestionModel(subject);
+
+    const question = await QuestionModel.findById(questionId);
+    if (!question) return res.status(404).json({ message: "Question not found" });
+
+    const alreadyAttempted = await AttemptModel.findOne({ userId, questionId });
+    if (alreadyAttempted) return res.status(409).json({ message: "Question already attempted" });
+
+    const correct = question.correctAnswer === selectedOption;
+
+    await AttemptModel.create({ userId, questionId, selectedOption, correct });
+
+    res.status(200).json({ 
+      correct, 
+      correctAnswer: question.correctAnswer 
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: "Server Error", error });
+  }
 };
-
