@@ -17,7 +17,6 @@ export async function validateAnswersController(req: Request, res: Response) {
     const correctness: Record<string, boolean> = {};
     const correctAnswers: Record<string, string> = {};
 
-    // Validate each answer
     for (const [questionId, selectedOption] of Object.entries(answers)) {
       try {
         const question = await QuestionModel.findById(questionId);

@@ -21,7 +21,6 @@ export async function questionController(req: Request, res: Response) {
       return res.status(404).json({ message: "No new questions available" });
     }
 
-    // Use $facet to get exactly 3 easy, 4 medium, 3 hard
     const results = await QuestionModel.aggregate([
       { $match: { _id: { $nin: attemptedIds } } },
       {
