@@ -7,6 +7,7 @@ import { z } from "zod";
 import bcrypt from "bcrypt"
 import { userMiddleware } from "./middleware/userMiddleware";
 import questionRoutes from "./routes/questionRoutes";
+import aiRoutes from "./routes/aiRoutes";
 
 const app = express();
 app.use(express.json());
@@ -66,6 +67,7 @@ app.post("/signin", async (req, res) => {
 })
 
 app.use("/v1/quiz", questionRoutes);
+app.use("/v1/genai", aiRoutes);
 
 app.listen(3000,() => {
     console.log("Running on Port 3000")
