@@ -1,43 +1,73 @@
-// Uses OPEN AI
-
 import type { Request, Response } from "express";
 import 'dotenv/config';
-import { ChatOpenAI } from '@langchain/openai'
+import { ChatOpenAI } from '@langchain/openai';
 
-// Initialize LangChain ChatOpenAI model
 const chatModel = new ChatOpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-    model: "gpt-4",
-    //temperature: 0
+  apiKey: process.env.OPENAI_API_KEY!,
+  model: "gpt-4o-mini",
+  temperature: 0
 });
 
+function isGibberish(input: string): boolean {
+  const str = input.trim().toLowerCase();
+  if (str.length < 3) return true;
+  if (!/[a-z]/.test(str)) return true;
+  if (!/[aeiou]/.test(str)) return true;
+  if (/[^a-z\s\.\-]/.test(str)) return true;
+  if (/^(.)\1+$/.test(str)) return true;
+  return false;
+}
+
+function looksValidRole(input: string): boolean {
+  const jobKeywords = ["developer", "engineer", "scientist", "architect", "analyst", "stack"];
+  const techKeywords = ["react", "node", "python", "java", "dotnet", "angular", "mern", "data", "ai", "ml"];
+
+  const lower = input.toLowerCase();
+  return jobKeywords.some(k => lower.includes(k)) && techKeywords.some(k => lower.includes(k));
+}
+
 export async function roleController(req: Request, res: Response) {
-    const { input } = req.body;
+  const { input } = req.body;
 
-    if (!input || !input.trim()) {
-        return res.status(400).json({ error: "Input not provided" });
+  if (!input || !input.trim()) {
+    return res.status(400).json({ error: "Input not provided" });
+  }
+
+  const cleanInput = input.trim();
+
+  if (isGibberish(cleanInput)) {
+    console.log("Rejected gibberish input:", cleanInput);
+    return res.status(400).json({ error: "Input not meaningful" });
+  }
+
+  if (looksValidRole(cleanInput)) {
+    console.log("Accepted locally:", cleanInput);
+    return res.json({ role: cleanInput, validatedBy: "local-check" });
+  }
+
+  try {
+    console.log("Fallback to OpenAI validation for:", cleanInput);
+
+    const prompt = `
+    You are a strict Computer Science role validator.
+    Determine if "${cleanInput}" is a valid CS job role (e.g., React Developer, .NET Developer, Data Scientist).
+    Reply only with "VALID" or "INVALID".
+    Reject vague inputs such as: Engineering, Developer, Full Stack, Frontend, Backend, Database.
+    `;
+
+    const response = await chatModel.invoke(prompt);
+    const answer = response.text?.trim().toUpperCase();
+
+    if (answer !== "VALID") {
+      console.log("AI rejected role:", cleanInput, "| Answer:", answer);
+      return res.status(400).json({ error: "Not a proper role" });
     }
 
-    try {
-        const prompt = `Check if "${input}" is a valid CS job role (React Developer, .NET Developer, Data Scientist, etc.).
-        Reply only with "VALID" or "INVALID".
-        Reject vague inputs: Engineering, Developer, Full Stack, Frontend, Backend, Database.`;
+    console.log("AI validated role:", cleanInput);
+    return res.json({ role: cleanInput, validatedBy: "openai" });
 
-        // LangChain invoke
-        const response = await chatModel.invoke((prompt));
-
-        // The response is usually a string
-        const answer = response.text?.trim().toUpperCase();
-
-        if (answer !== "VALID") {
-            return res.status(400).json({ error: "Not a proper role" });
-        }
-
-        console.log("Valid Role Received:", input);
-        res.json({ Role: input });
-
-    } catch (err) {
-        console.error("OpenAI/GROQ validation error:", err);
-        res.status(500).json({ error: "AI validation failed" });
-    }
+  } catch (err) {
+    console.error("AI validation failed:", err);
+    return res.status(500).json({ error: "AI validation failed" });
+  }
 }
