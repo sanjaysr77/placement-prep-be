@@ -9,10 +9,9 @@ Simple quiz backend with JWT auth, MongoDB (Mongoose), topic-wise dynamic questi
 - **Auth**: JWT
 - **Validation**: Zod
 - **AI Integration**: OpenAI and GROQ via LangChain
-
 ---
 Your .env file should contain the following: 
-MONGO_URL = 
-JWT_SECRET = 
-OPENAI_API_KEY=
-GROQ_API_KEY=
+- MONGO_URL =
+- JWT_SECRET =
+- OPENAI_API_KEY=
+- GROQ_API_KEY=
