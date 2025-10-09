@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import 'dotenv/config';
 import { ChatOpenAI } from '@langchain/openai';
+import { getQuestionsForRole } from "./roleQuestionController"; // 👈 internal call
 
 const chatModel = new ChatOpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -19,7 +20,7 @@ function isGibberish(input: string): boolean {
 }
 
 function looksValidRole(input: string): boolean {
-  const jobKeywords = ["developer", "engineer", "scientist", "architect", "analyst", "stack"];
+  const jobKeywords = ["developer", "engineer", "scientist", "architect", "analyst", "stack", "roles", "role", "engineering"];
   const techKeywords = ["react", "node", "python", "java", "dotnet", "angular", "mern", "data", "ai", "ml"];
 
   const lower = input.toLowerCase();
@@ -42,7 +43,14 @@ export async function roleController(req: Request, res: Response) {
 
   if (looksValidRole(cleanInput)) {
     console.log("Accepted locally:", cleanInput);
-    return res.json({ role: cleanInput, validatedBy: "local-check" });
+
+    // 👇 Now directly call roleQuestionController logic internally
+    const questionsResponse = await getQuestionsForRole(cleanInput);
+    return res.json({
+      role: cleanInput,
+      validatedBy: "local-check",
+      ...questionsResponse, // merge question data
+    });
   }
 
   try {
@@ -64,7 +72,15 @@ export async function roleController(req: Request, res: Response) {
     }
 
     console.log("AI validated role:", cleanInput);
-    return res.json({ role: cleanInput, validatedBy: "openai" });
+
+    // 👇 Fetch related questions from Pinecone/OpenAI before sending response
+    const questionsResponse = await getQuestionsForRole(cleanInput);
+
+    return res.json({
+      role: cleanInput,
+      validatedBy: "openai",
+      ...questionsResponse, // merge question data
+    });
 
   } catch (err) {
     console.error("AI validation failed:", err);
