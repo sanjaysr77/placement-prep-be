@@ -1,11 +1,8 @@
 import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
 import { Pinecone } from "@pinecone-database/pinecone";
 import { PineconeStore } from "@langchain/community/vectorstores/pinecone";
-import type { Request, Response } from "express";
+//import type { Request, Response } from "express";
 
-// ---------------------------
-// 1️⃣ Initialize OpenAI + Pinecone
-// ---------------------------
 const chatModel = new ChatOpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
   model: "gpt-4o-mini",
@@ -21,15 +18,27 @@ const pineconeStore = new PineconeStore(embeddings, {
 });
 
 // ---------------------------
-// 2️⃣ Core Question Generator
+// 2️⃣ Normalize Role Function
+// ---------------------------
+function normalizeRoleName(role: string): string {
+  return role
+    .trim()
+    .toLowerCase()
+    .replace(/developer|engineer|role|roles|dev/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// ---------------------------
+// 3️⃣ Question Generator
 // ---------------------------
 async function generateQuestions(role: string) {
   const prompt = `
 Generate 5 interview-style questions for the role "${role}".
-- 3 questions: normal questions with textual answers.
-- 1 question: explain a concept or mini-code.
-- 1 question: one-word answer.
-Return as an array of strings (JSON or newline-separated).
+- 3 normal questions with textual answers
+- 1 conceptual/code explanation question
+- 1 one-word answer question
+Return as a JSON array of strings.
 `;
 
   const response = await chatModel.call([{ role: "user", content: prompt }]);
@@ -46,43 +55,73 @@ Return as an array of strings (JSON or newline-separated).
 }
 
 // ---------------------------
-// 3️⃣ Exported helper for backend-internal calls
+// 4️⃣ Core Logic
 // ---------------------------
 export async function getQuestionsForRole(validatedRole: string) {
   try {
-    // 🔍 Search Pinecone cache first
-    const existing = await pineconeStore.similaritySearch(validatedRole, 5);
-    if (existing.length > 0) {
-      console.log("✅ Returning cached questions from Pinecone");
-      return {
-        source: "pinecone",
-        questions: existing.map((doc) => doc.pageContent),
-      };
+    const canonicalRole = normalizeRoleName(validatedRole);
+    console.log(`Accepted locally: ${validatedRole}`);
+    console.log(`🧭 Canonical role: ${canonicalRole}`);
+
+    // Step 1: Semantic search in Pinecone
+    console.log("🔎 Checking Pinecone role matches...");
+    const searchResults = await pineconeStore.similaritySearchWithScore(canonicalRole, 20);
+
+    const THRESHOLD = 0.78;
+    let matchedDocs: typeof searchResults = [];
+
+    // Step 2: Filter semantically similar roles manually
+    for (const [doc, score] of searchResults) {
+      const role = doc.metadata?.role?.toLowerCase();
+      if (
+        role?.includes(canonicalRole) ||
+        canonicalRole.includes(role) ||
+        score >= THRESHOLD
+      ) {
+        matchedDocs.push([doc, score]);
+      }
     }
 
-    // 🆕 Generate new questions via OpenAI
-    const questions = await generateQuestions(validatedRole);
+    // Step 3: If any match, reuse cached questions
+    if (matchedDocs.length > 0) {
+      const matchedRole = matchedDocs[0][0].metadata.role;
+      console.log(`✅ Found matching role "${matchedRole}"`);
 
-    // 💾 Save in Pinecone
+      const questions = matchedDocs.map(([doc]) => doc.pageContent);
+      console.log(`📦 Reusing ${questions.length} cached questions for "${matchedRole}"`);
+
+      return { source: "pinecone", matchedRole, questions };
+    }
+
+    // Step 4: Otherwise, generate new questions via OpenAI
+    console.log(`🧠 No similar role found. Generating new questions for "${canonicalRole}"...`);
+    const questions = await generateQuestions(canonicalRole);
+
+    // Step 5: Store new questions in Pinecone
     await pineconeStore.addDocuments(
-      questions.map((q) => ({ pageContent: q, metadata: { role: validatedRole } }))
+      questions.map((q) => ({
+        pageContent: q,
+        metadata: { role: canonicalRole, type: "question" },
+      }))
     );
 
-    console.log("🆕 Generated and stored questions for:", validatedRole);
+    console.log(`🆕 Generated and stored questions for: ${canonicalRole}`);
     return { source: "openai", questions };
   } catch (err) {
-    console.error("Error in getQuestionsForRole:", err);
+    console.error("❌ Error in getQuestionsForRole:", err);
     return { error: "Failed to fetch questions" };
   }
 }
 
 // ---------------------------
-// 4️⃣ Express route (optional for standalone use)
+// 5️⃣ Express Controller
 // ---------------------------
-export const roleQuestionController = async (req: Request, res: Response) => {
-  const { validatedRole } = req.body;
-  if (!validatedRole) return res.status(400).json({ error: "validatedRole is required" });
+// export const roleQuestionController = async (req: Request, res: Response) => {
+//   const { validatedRole } = req.body;
+//   if (!validatedRole) {
+//     return res.status(400).json({ error: "validatedRole is required" });
+//   }
 
-  const result = await getQuestionsForRole(validatedRole);
-  res.json(result);
-};
+//   const result = await getQuestionsForRole(validatedRole);
+//   res.json(result);
+// };
