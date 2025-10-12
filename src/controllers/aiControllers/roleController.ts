@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import 'dotenv/config';
 import { ChatOpenAI } from '@langchain/openai';
-import { getQuestionsForRole } from "./roleQuestionController"; // 👈 internal call
+import { getQuestionsForRole } from "./roleQuestionController";
 
 const chatModel = new ChatOpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -24,7 +24,10 @@ function looksValidRole(input: string): boolean {
   const techKeywords = ["react", "node", "python", "java", "dotnet", "angular", "mern", "data", "ai", "ml"];
 
   const lower = input.toLowerCase();
-  return jobKeywords.some(k => lower.includes(k)) && techKeywords.some(k => lower.includes(k));
+  const hasJob = jobKeywords.some(k => lower.includes(k));
+  const hasTech = techKeywords.some(k => lower.includes(k));
+
+  return hasTech && (hasJob || !hasJob);
 }
 
 export async function roleController(req: Request, res: Response) {
@@ -44,7 +47,7 @@ export async function roleController(req: Request, res: Response) {
   if (looksValidRole(cleanInput)) {
     console.log("Accepted locally:", cleanInput);
 
-    // 👇 Now directly call roleQuestionController logic internally
+    // Now directly call roleQuestionController logic internally
     const questionsResponse = await getQuestionsForRole(cleanInput);
     return res.json({
       role: cleanInput,
@@ -73,7 +76,7 @@ export async function roleController(req: Request, res: Response) {
 
     console.log("AI validated role:", cleanInput);
 
-    // 👇 Fetch related questions from Pinecone/OpenAI before sending response
+    //Fetch related questions from Pinecone/OpenAI before sending response
     const questionsResponse = await getQuestionsForRole(cleanInput);
 
     return res.json({
