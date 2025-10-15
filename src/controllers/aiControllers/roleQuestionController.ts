@@ -1,7 +1,6 @@
 import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
 import { Pinecone } from "@pinecone-database/pinecone";
 import { PineconeStore } from "@langchain/community/vectorstores/pinecone";
-//import type { Request, Response } from "express";
 
 const chatModel = new ChatOpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -30,27 +29,37 @@ function normalizeRoleName(role: string): string {
 }
 
 // ---------------------------
-// 3️⃣ Question Generator
+// 3️⃣ Question Generator (fixed)
 // ---------------------------
 async function generateQuestions(role: string) {
   const prompt = `
-Generate 5 interview-style questions for the role "${role}".
-- 3 normal questions with textual answers
-- 1 conceptual/code explanation question
+Generate 3 interview-style questions for the role "${role}".
+- 2 normal questions with textual answers
 - 1 one-word answer question
-Return as a JSON array of strings.
+Return ONLY a valid JSON array of strings.
+Example: ["Question 1", "Question 2", "Question 3"]
 `;
 
   const response = await chatModel.call([{ role: "user", content: prompt }]);
-  const content = Array.isArray(response) ? response[0].text : response.text;
+  const rawContent = Array.isArray(response) ? response[0].text : response.text;
 
-  if (!content) return [];
+  if (!rawContent) return [];
+
+  // 🧹 Clean out unwanted ```json and ``` markers
+  const cleaned = rawContent
+    .replace(/```json/gi, "")
+    .replace(/```/g, "")
+    .trim();
 
   try {
-    const parsed = JSON.parse(content);
-    return Array.isArray(parsed) ? parsed : content.split("\n").filter(Boolean);
+    const parsed = JSON.parse(cleaned);
+    // Ensure we return a clean string array
+    return Array.isArray(parsed)
+      ? parsed.map((q) => q.trim())
+      : cleaned.split("\n").filter(Boolean);
   } catch {
-    return content.split("\n").filter(Boolean).slice(0, 5);
+    // fallback for malformed JSON
+    return cleaned.split("\n").filter(Boolean).slice(0, 5);
   }
 }
 
@@ -68,36 +77,28 @@ export async function getQuestionsForRole(validatedRole: string) {
     const searchResults = await pineconeStore.similaritySearchWithScore(canonicalRole, 20);
 
     const THRESHOLD = 0.78;
-    let matchedDocs: typeof searchResults = [];
-
-    // Step 2: Filter semantically similar roles manually
-    for (const [doc, score] of searchResults) {
+    const matchedDocs = searchResults.filter(([doc, score]) => {
       const role = doc.metadata?.role?.toLowerCase();
-      if (
+      return (
         role?.includes(canonicalRole) ||
         canonicalRole.includes(role) ||
         score >= THRESHOLD
-      ) {
-        matchedDocs.push([doc, score]);
-      }
-    }
+      );
+    });
 
-    // Step 3: If any match, reuse cached questions
+    // Step 2: Reuse cached questions if match found
     if (matchedDocs.length > 0) {
       const matchedRole = matchedDocs[0][0].metadata.role;
-      console.log(`✅ Found matching role "${matchedRole}"`);
-
       const questions = matchedDocs.map(([doc]) => doc.pageContent);
-      console.log(`📦 Reusing ${questions.length} cached questions for "${matchedRole}"`);
-
+      console.log(`✅ Reusing ${questions.length} cached questions for "${matchedRole}"`);
       return { source: "pinecone", matchedRole, questions };
     }
 
-    // Step 4: Otherwise, generate new questions via OpenAI
+    // Step 3: Generate new questions
     console.log(`🧠 No similar role found. Generating new questions for "${canonicalRole}"...`);
     const questions = await generateQuestions(canonicalRole);
 
-    // Step 5: Store new questions in Pinecone
+    // Step 4: Store clean questions in Pinecone
     await pineconeStore.addDocuments(
       questions.map((q) => ({
         pageContent: q,
@@ -105,13 +106,14 @@ export async function getQuestionsForRole(validatedRole: string) {
       }))
     );
 
-    console.log(`🆕 Generated and stored questions for: ${canonicalRole}`);
+    console.log(`🆕 Generated and stored clean questions for: ${canonicalRole}`);
     return { source: "openai", questions };
   } catch (err) {
     console.error("❌ Error in getQuestionsForRole:", err);
     return { error: "Failed to fetch questions" };
   }
 }
+
 
 // ---------------------------
 // 5️⃣ Express Controller
