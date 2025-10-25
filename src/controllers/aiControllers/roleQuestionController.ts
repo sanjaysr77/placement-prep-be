@@ -27,16 +27,15 @@ function normalizeRoleName(role: string): string {
 
 async function generateQuestions(role: string) {
   const prompt = `
-Generate 3 interview-style questions for the role "${role}".
-- 2 normal questions with textual answers
-- 1 one-word answer question
+Generate 3 interview questions for the role "${role}":
+- 2 regular technical questions
+- 1 short factual question with a one- or two-word answer (the question must be full-sentence)
 Return ONLY a valid JSON array of strings.
 Example: ["Question 1", "Question 2", "Question 3"]
 `;
 
   const response = await chatModel.call([{ role: "user", content: prompt }]);
   const rawContent = Array.isArray(response) ? response[0].text : response.text;
-
   if (!rawContent) return [];
 
   const cleaned = rawContent.replace(/```json/gi, "").replace(/```/g, "").trim();
@@ -47,7 +46,6 @@ Example: ["Question 1", "Question 2", "Question 3"]
       ? parsed.map((q) => q.trim())
       : cleaned.split("\n").filter(Boolean);
   } catch {
-    // fallback for malformed JSON
     return cleaned.split("\n").filter(Boolean).slice(0, 5);
   }
 }
@@ -62,39 +60,43 @@ export async function getQuestionsForRole(validatedRole: string) {
     console.log(`🧭 Canonical role: ${canonicalRole}`);
 
     // -----------------
-    // Step 1: Semantic search in Pinecone
+    // Step 1️⃣: Exact role match from metadata (fast lookup)
     // -----------------
-    console.log("🔎 Checking Pinecone role matches...");
-    const searchResults = await pineconeStore.similaritySearchWithScore(canonicalRole, 20);
-
-    // Stricter threshold to avoid cross-domain mismatches
-    const STRICT_THRESHOLD = 0.85;
-
-    const matchedDocs = searchResults.filter(([doc, score]) => {
-      const docRole = doc.metadata?.role?.toLowerCase() || "";
-      // Only accept exact role match or very high similarity
-      return docRole === canonicalRole || score >= STRICT_THRESHOLD;
+    console.log("🔎 Checking exact role match in Pinecone metadata...");
+    const allResults = await pineconeStore.similaritySearchWithScore(canonicalRole, 50);
+    const exactRoleDocs = allResults.filter(([doc]) => {
+      return doc.metadata?.role?.toLowerCase() === canonicalRole;
     });
 
-    // -----------------
-    // Step 2: Use cached questions only if strong match
-    // -----------------
-    if (matchedDocs.length > 0) {
-      const matchedRole = matchedDocs[0][0].metadata.role;
-      const questions = matchedDocs.map(([doc]) => doc.pageContent);
-      console.log(`✅ Reusing ${questions.length} cached questions for "${matchedRole}"`);
-      return { source: "pinecone", matchedRole, questions };
+    if (exactRoleDocs.length > 0) {
+      const matchedRole = exactRoleDocs[0][0].metadata.role;
+      const questions = exactRoleDocs.map(([doc]) => doc.pageContent);
+      console.log(`✅ Found exact role match for "${matchedRole}" (${questions.length} questions)`);
+      return { source: "metadata", matchedRole, questions };
     }
 
     // -----------------
-    // Step 3: No strong match → generate new questions via OpenAI
+    // Step 2️⃣: Semantic similarity search (backup if exact match not found)
     // -----------------
-    console.log(`🧠 No strong match found. Generating new questions for "${canonicalRole}"...`);
-    const questions = await generateQuestions(canonicalRole);
+    console.log("🧠 No exact match found. Checking semantic similarity...");
+    const semanticResults = await pineconeStore.similaritySearchWithScore(canonicalRole, 20);
+    const STRICT_THRESHOLD = 0.80;
+
+    const matchedDocs = semanticResults.filter(([doc, score]) => score >= STRICT_THRESHOLD);
+
+    if (matchedDocs.length > 0) {
+      const matchedRole = matchedDocs[0][0].metadata.role;
+      const questions = matchedDocs.map(([doc]) => doc.pageContent);
+      console.log(`✅ Found semantically similar role "${matchedRole}" (${questions.length} questions)`);
+      return { source: "semantic", matchedRole, questions };
+    }
 
     // -----------------
-    // Step 4: Store generated questions in Pinecone
+    // Step 3️⃣: No match → Generate using OpenAI and store
     // -----------------
+    console.log(`🆕 No match found. Generating questions for "${canonicalRole}"...`);
+    const questions = await generateQuestions(canonicalRole);
+
     await pineconeStore.addDocuments(
       questions.map((q) => ({
         pageContent: q,
@@ -102,21 +104,10 @@ export async function getQuestionsForRole(validatedRole: string) {
       }))
     );
 
-    console.log(`🆕 Generated and stored clean questions for: ${canonicalRole}`);
-    return { source: "openai", questions };
+    console.log(`✅ Generated and stored new questions for "${canonicalRole}"`);
+    return { source: "openai", matchedRole: canonicalRole, questions };
   } catch (err) {
     console.error("❌ Error in getQuestionsForRole:", err);
     return { error: "Failed to fetch questions" };
   }
 }
-
-// ---------------------------
-// 5️⃣ Optional: Express Controller
-// ---------------------------
-// import { Request, Response } from "express";
-// export const roleQuestionController = async (req: Request, res: Response) => {
-//   const { validatedRole } = req.body;
-//   if (!validatedRole) return res.status(400).json({ error: "validatedRole is required" });
-//   const result = await getQuestionsForRole(validatedRole);
-//   res.json(result);
-// };
