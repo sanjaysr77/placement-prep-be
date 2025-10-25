@@ -63,7 +63,6 @@ export async function roleController(req: Request, res: Response) {
     You are a strict Computer Science role validator.
     Determine if "${cleanInput}" is a valid CS job role (e.g., React Developer, .NET Developer, Data Scientist).
     Reply only with "VALID" or "INVALID".
-    Reject vague inputs such as: Engineering, Developer, Full Stack, Frontend, Backend, Database.
     `;
 
     const response = await chatModel.invoke(prompt);
