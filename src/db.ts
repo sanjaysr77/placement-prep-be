@@ -36,3 +36,13 @@ const AttemptSchema = new Schema({
 
 export const UserModel = model("User", UserSchema);
 export const AttemptModel = model("Attempt", AttemptSchema);
+
+const InterviewScoreSchema = new Schema({
+    userId: { type: Schema.Types.ObjectId, required: true, ref: "User" },
+    role: { type: String, required: true },
+    scores: { type: [Number], required: true }, // [20,20,10] style component scores
+    total: { type: Number, required: true },    // capped at 50
+    sessionId: { type: String },
+}, { timestamps: true });
+
+export const InterviewScoreModel = model("InterviewScore", InterviewScoreSchema);

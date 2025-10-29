@@ -30,13 +30,13 @@ function normalizeRoleName(role: string): string {
     .trim();
 }
 
-// 🤖 Generate questions using OpenAI if not found
+// 🤖 Generate exactly 3 questions using OpenAI if not found
 async function generateQuestions(role: string) {
   const prompt = `
 Generate 3 interview questions for the role "${role}":
 - 2 technical questions
 - 1 factual one-liner question
-Return ONLY a valid JSON array of strings.
+Return ONLY a valid JSON array of exactly 3 strings.
 Example: ["Question 1", "Question 2", "Question 3"]
 `;
 
@@ -51,11 +51,11 @@ Example: ["Question 1", "Question 2", "Question 3"]
 
   try {
     const parsed = JSON.parse(cleaned);
-    return Array.isArray(parsed)
-      ? parsed.map((q) => q.trim())
-      : cleaned.split("\n").filter(Boolean);
+    const final = Array.isArray(parsed) ? parsed.map((q) => q.trim()) : [];
+    return final.slice(0, 3); // ✅ Always limit to 3
   } catch {
-    return cleaned.split("\n").filter(Boolean).slice(0, 5);
+    // fallback if JSON is malformed
+    return cleaned.split("\n").filter(Boolean).slice(0, 3);
   }
 }
 
@@ -69,14 +69,27 @@ export async function getQuestionsForRole(validatedRole: string) {
     const searchQuery = `Interview questions for ${canonicalRole}`;
     const results = await pineconeStore.similaritySearchWithScore(searchQuery, 20);
 
-    // 2️⃣ Filter semantically close matches
-    const STRICT_THRESHOLD = 0.85;
+    // 2️⃣ Filter semantically close matches (≥ 0.80)
+    const STRICT_THRESHOLD = 0.80;
     const matchedDocs = results.filter(([_, score]) => score >= STRICT_THRESHOLD);
 
     if (matchedDocs.length > 0) {
       const matchedRole = matchedDocs[0][0].metadata?.role || canonicalRole;
-      const questions = matchedDocs.map(([doc]) => doc.pageContent);
-      console.log(`✅ Found semantically relevant questions for "${matchedRole}" (${questions.length} found)`);
+
+      // 🌀 Randomize selection (pick any 3 random questions above threshold)
+      const shuffled = matchedDocs.sort(() => Math.random() - 0.5);
+      const questions = shuffled
+        .map(([doc]) =>
+          doc.pageContent
+            .replace(/^Question:\s*/i, "")   // remove leading “Question: ”
+            .replace(/\n*\s*Role:.*$/i, "")  // remove trailing “Role: …”
+            .trim()
+        )
+        .slice(0, 3);
+
+      console.log(
+        `✅ Found ${matchedDocs.length} relevant matches for "${matchedRole}". Showing 3 random ones.`
+      );
       return { source: "pinecone", matchedRole, questions };
     }
 
@@ -84,7 +97,7 @@ export async function getQuestionsForRole(validatedRole: string) {
     console.log(`🆕 No semantic match found. Generating questions for "${canonicalRole}"...`);
     const newQuestions = await generateQuestions(canonicalRole);
 
-    // 🧠 Store new questions (Question first, then Role)
+    // 🧠 Store new questions
     const docsToStore = newQuestions.map((q) => ({
       pageContent: `Question: ${q}\n\nRole: ${canonicalRole}`,
       metadata: { role: canonicalRole, type: "question" },
