@@ -53,8 +53,8 @@ async function classifyCategory(label: string): Promise<ClassifiedType> {
     const text = completion.output_text?.trim().toLowerCase() || "";
     const normalized: ClassifiedType =
       text.includes("role") ? "role" :
-      text.includes("company") ? "company" :
-      "subject";
+        text.includes("company") ? "company" :
+          "subject";
     classificationCache.set(label, normalized);
     return normalized;
   } catch (err) {
@@ -176,5 +176,43 @@ export async function getPersonalizedReport(req: Request, res: Response) {
   } catch (error) {
     console.error("Error fetching personalized report:", error);
     return res.status(500).json({ error: "Failed to fetch report data" });
+  }
+}
+
+export async function getSubjectAttempts(req: Request, res: Response) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const userId = (req as any).userId as string | undefined;
+
+  if (!userId) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  try {
+    const subjectData = await AttemptModel.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+      {
+        $group: {
+          _id: "$subject",
+          correctCount: {
+            $sum: {
+              $cond: [{ $eq: ["$correct", true] }, 1, 0],
+            },
+          },
+          totalCount: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
+
+    const formattedData = subjectData.map((item) => ({
+      subject: item._id || "Unknown",
+      correctCount: item.correctCount,
+      totalCount: item.totalCount,
+    }));
+
+    return res.json({ subjectAttempts: formattedData });
+  } catch (error) {
+    console.error("Error fetching subject attempts:", error);
+    return res.status(500).json({ error: "Failed to fetch subject attempts" });
   }
 }
