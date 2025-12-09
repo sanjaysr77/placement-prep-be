@@ -33,6 +33,7 @@ const AttemptSchema = new Schema({
     selectedOption: { type: String, required: true },
     correct: { type: Boolean, required: true },
     subject: { type: String, required: true },
+    topic: { type: String, required: true },
 }, { timestamps: true });
 
 export const UserModel = model("User", UserSchema);
