@@ -7,6 +7,7 @@ import { z } from "zod";
 import bcrypt from "bcrypt"
 import questionRoutes from "./routes/questionRoutes";
 import aiRoutes from "./routes/aiRoutes";
+import reportRoutes from "./routes/reportRoutes";
 //import aiQuestionRoutes from "./routes/aiQuestionRoutes"
 
 const app = express();
@@ -68,6 +69,7 @@ app.post("/signin", async (req, res) => {
 
 app.use("/v1/quiz", questionRoutes);
 app.use("/v1/genai", aiRoutes);
+app.use("/v1/report", reportRoutes);
 //app.use("/v1/generate-role", aiQuestionRoutes);
 
 app.listen(3000,() => {

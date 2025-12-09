@@ -32,6 +32,7 @@ const AttemptSchema = new Schema({
     questionId: { type: Schema.Types.ObjectId, required: true, ref: "Question" },
     selectedOption: { type: String, required: true },
     correct: { type: Boolean, required: true },
+    subject: { type: String, required: true },
 }, { timestamps: true });
 
 export const UserModel = model("User", UserSchema);

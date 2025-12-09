@@ -22,11 +22,11 @@ export async function attemptController(req: Request, res: Response) {
 
     const correct = question.correctAnswer === selectedOption;
 
-    await AttemptModel.create({ userId, questionId, selectedOption, correct });
+    await AttemptModel.create({ userId, questionId, selectedOption, correct, subject });
 
-    res.status(200).json({ 
-      correct, 
-      correctAnswer: question.correctAnswer 
+    res.status(200).json({
+      correct,
+      correctAnswer: question.correctAnswer
     });
 
   } catch (error) {
