@@ -1,13 +1,15 @@
+import { getQuestionsForSubject } from "./subjectQuestionController";
+
 //Uses GROQ
 
 import type { Request, Response } from "express";
-import 'dotenv/config';
-import {ChatGroq } from '@langchain/groq'
+import "dotenv/config";
+import { ChatGroq } from "@langchain/groq";
 
 // Initialize LangChain ChatOpenAI model
 const chatModel = new ChatGroq({
   apiKey: process.env.GROQ_API_KEY!,
-  model: "openai/gpt-oss-20b", 
+  model: "openai/gpt-oss-20b",
   //temperature: 0
 });
 
@@ -23,7 +25,7 @@ export async function subjectController(req: Request, res: Response) {
     NOTE: It should be a Computer Science subject`;
 
     // LangChain invoke
-    const response = await chatModel.invoke((prompt));
+    const response = await chatModel.invoke(prompt);
 
     // The response is usually a string
     const answer = response.text?.trim().toUpperCase();
@@ -33,10 +35,11 @@ export async function subjectController(req: Request, res: Response) {
     }
 
     console.log("Valid Subject Received:", input);
-    res.json({ subject: input });
-
+    const { questions } = await getQuestionsForSubject(input);
+    res.json({ subject: input, questions });
   } catch (err) {
     console.error("OpenAI validation error:", err);
     res.status(500).json({ error: "AI validation failed" });
   }
 }
+

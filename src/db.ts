@@ -32,6 +32,8 @@ const AttemptSchema = new Schema({
     questionId: { type: Schema.Types.ObjectId, required: true, ref: "Question" },
     selectedOption: { type: String, required: true },
     correct: { type: Boolean, required: true },
+    subject: { type: String, required: true },
+    topic: { type: String, required: true },
 }, { timestamps: true });
 
 export const UserModel = model("User", UserSchema);
@@ -39,7 +41,9 @@ export const AttemptModel = model("Attempt", AttemptSchema);
 
 const InterviewScoreSchema = new Schema({
     userId: { type: Schema.Types.ObjectId, required: true, ref: "User" },
-    role: { type: String, required: true },
+    role: { type: String, required: false },
+    company: { type: String, required: false },
+    subject: { type: String, required: false },
     scores: { type: [Number], required: true }, // [20,20,10] style component scores
     total: { type: Number, required: true },    // capped at 50
     sessionId: { type: String },
