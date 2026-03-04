@@ -13,5 +13,9 @@ Simple quiz backend with JWT auth, MongoDB (Mongoose), topic-wise dynamic questi
 Your .env file should contain the following: 
 - MONGO_URL =
 - JWT_SECRET =
-- OPENAI_API_KEY=
-- GROQ_API_KEY=
+- OPENAI_API_KEY =
+- GROQ_API_KEY =
+- PINECONE_API_KEY =
+- PINECONE_ENVIRONMENT =
+- PINECONE_INDEX_NAME =
+- PINECONE_INDEX_NAME =
